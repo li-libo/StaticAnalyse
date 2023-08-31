@@ -119,7 +119,7 @@ public class StaticAnalyseUtils {
                             calleeSet.addAll(implCalleeSet);
                         }
                     }catch (Exception e) {
-                        //e.printStackTrace();
+                        e.printStackTrace();
                     }
                 }
                 methodCallMap.put(declaringType.getPackage() + "." + declaringType.getSimpleName() + "#" + method.getSignature(), calleeSet);

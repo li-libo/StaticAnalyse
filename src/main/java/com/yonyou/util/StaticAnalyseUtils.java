@@ -77,13 +77,13 @@ public class StaticAnalyseUtils {
             try {
                 //System.out.println("接口: " + ctInterface.getSimpleName());
                 // 遍历接口的方法
-                for (CtMethod<?> interfaceMethod : ctInterface.getAllMethods()) {
+                for (CtMethod<?> interfaceMethod : ctInterface.getMethods()) {
                     //System.out.println("接口方法: " + interfaceMethod.getSignature());
                     // 遍历所有类
                     for (CtClass<?> ctClass : model.getElements(new TypeFilter<>(CtClass.class))) {
                         // 检查是否是接口实现类
                             // 检查类中是否包含重写的方法
-                            for (CtMethod<?> classMethod : ctClass.getAllMethods()) {
+                            for (CtMethod<?> classMethod : ctClass.getMethods()) {
                                 if (classMethod.isOverriding(interfaceMethod)) {
                                     //System.out.println("类方法" + ctClass.getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + ctInterface.getQualifiedName() + "#" + interfaceMethod.getSignature());
                                     String interfaceName = ctInterface.getQualifiedName() + "#" + interfaceMethod.getSignature();

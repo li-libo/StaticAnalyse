@@ -48,14 +48,14 @@ public class StaticAnalyseUtils {
         Map<String, Set<String>> interfaceAndImplMap = new HashMap<>();
         Set<CtMethod<?>> allMethodSet = new HashSet<>();
 //        Set<String> keyMethodNameSet = new HashSet<>();
-        Set<String> allMethodNameSet = new HashSet<>();
+//        Set<String> allMethodNameSet = new HashSet<>();
         for (CtType<?> ctClass : model.getAllTypes()) {
             try{
                 Set<CtMethod<?>> ctlMethodSet = ctClass.getAllMethods();
                 allMethodSet.addAll(ctlMethodSet);
-                for (CtMethod<?> method : ctlMethodSet) {
-                    CtType<?> declaringType = method.getDeclaringType();
-                    String key = declaringType.getPackage() + "." + declaringType.getSimpleName() + "#" + method.getSignature();
+//                for (CtMethod<?> method : ctlMethodSet) {
+//                    CtType<?> declaringType = method.getDeclaringType();
+//                    String key = declaringType.getPackage() + "." + declaringType.getSimpleName() + "#" + method.getSignature();
 //                    //解析方法注解
 //                    List<CtAnnotation<? extends Annotation>> annotations = method.getAnnotations();
 //                    if (annotations != null && annotations.size() > 0) {
@@ -65,8 +65,8 @@ public class StaticAnalyseUtils {
 //                            }
 //                        }
 //                    }
-                    allMethodNameSet.add(key);
-                }
+//                    allMethodNameSet.add(key);
+//                }
             }catch (Exception e) {
                 e.printStackTrace();
             }
@@ -115,8 +115,8 @@ public class StaticAnalyseUtils {
                         calleeSet.add(callee);
                         //如果被调用者是接口,将实现类方法也一并塞入
                         if(interfaceAndImplMap.containsKey(callee)) {
-                            Set<String> implSet = interfaceAndImplMap.get(callee);
-                            calleeSet.addAll(interfaceAndImplMap.get(implSet));
+                            Set<String> implCalleeSet = interfaceAndImplMap.get(callee);
+                            calleeSet.addAll(implCalleeSet);
                         }
                     }catch (Exception e) {
                         //e.printStackTrace();

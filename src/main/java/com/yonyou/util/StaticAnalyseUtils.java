@@ -90,13 +90,49 @@ public class StaticAnalyseUtils {
                                     String implName = ctClass.getQualifiedName() + "#" + classMethod.getSignature();
                                     interfaceAndImplMap.putIfAbsent(interfaceName, new HashSet<>());
                                     //记录接口实现类关系
-                                    interfaceAndImplMap.get(interfaceName).add(implName);
+                                    if(!interfaceName.equals(implName)) {
+                                        interfaceAndImplMap.get(interfaceName).add(implName);
+                                    }
                                 }
                             }
                     }
                 }
             }catch (Exception e) {
                 e.printStackTrace();
+            }
+        }
+        // 遍历所有抽象类找到实现类
+        for (CtClass<?> absClass : model.getElements(new TypeFilter<>(CtClass.class))) {
+            if(absClass.isAbstract()) {
+                try {
+                    //System.out.println("接口: " + ctInterface.getSimpleName());
+                    // 遍历接口的方法
+                    for (CtMethod<?> absMethod : absClass.getMethods()) {
+                        //System.out.println("接口方法: " + interfaceMethod.getSignature());
+                        // 遍历所有类
+                        for (CtClass<?> ctClass : model.getElements(new TypeFilter<>(CtClass.class))) {
+                            if(ctClass.isAbstract()) {
+                                continue;
+                            }
+                            // 检查是否是接口实现类
+                            // 检查类中是否包含重写的方法
+                            for (CtMethod<?> classMethod : ctClass.getMethods()) {
+                                if (classMethod.isOverriding(absMethod)) {
+                                    //System.out.println("类方法" + ctClass.getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + absClass.getQualifiedName() + "#" + absMethod.getSignature());
+                                    String absName = absClass.getQualifiedName() + "#" + absMethod.getSignature();
+                                    String implName = ctClass.getQualifiedName() + "#" + classMethod.getSignature();
+                                    interfaceAndImplMap.putIfAbsent(absName, new HashSet<>());
+                                    //记录接口实现类关系
+                                    if(!absName.equals(implName)) {
+                                        interfaceAndImplMap.get(absName).add(implName);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
         for (CtMethod<?> method : allMethodSet) {
@@ -117,7 +153,7 @@ public class StaticAnalyseUtils {
                             calleeSet.addAll(implCalleeSet);
                         }
                     }catch (Exception e) {
-                        e.printStackTrace();
+                        //e.printStackTrace();
                     }
                 }
                 methodCallMap.put(declaringType.getPackage() + "." + declaringType.getSimpleName() + "#" + method.getSignature(), calleeSet);

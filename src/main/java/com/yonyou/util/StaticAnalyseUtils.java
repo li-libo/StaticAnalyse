@@ -47,12 +47,26 @@ public class StaticAnalyseUtils {
         Map<String, Set<String>> methodCallMap = new HashMap<>();
         Map<String, Set<String>> interfaceAndImplMap = new HashMap<>();
         Set<CtMethod<?>> allMethodSet = new HashSet<>();
+        Set<CtMethod<?>> interfaceMethodSet = new HashSet<>();
+        Set<CtMethod<?>> absMethodSet = new HashSet<>();
+        Set<CtMethod<?>> implMethodSet = new HashSet<>();
 //        Set<String> keyMethodNameSet = new HashSet<>();
 //        Set<String> allMethodNameSet = new HashSet<>();
         for (CtType<?> ctClass : model.getAllTypes()) {
-            try{
+            try {
                 Set<CtMethod<?>> ctlMethodSet = ctClass.getAllMethods();
                 allMethodSet.addAll(ctlMethodSet);
+                if (ctClass instanceof CtInterface) {
+                    interfaceMethodSet.addAll(ctlMethodSet);
+                } else {
+                    for (CtMethod<?> ctMethod : ctlMethodSet) {
+                        if (ctMethod.isAbstract()) {
+                            absMethodSet.add(ctMethod);
+                        } else {
+                            implMethodSet.add(ctMethod);
+                        }
+                    }
+                }
 //                for (CtMethod<?> method : ctlMethodSet) {
 //                    CtType<?> declaringType = method.getDeclaringType();
 //                    String key = declaringType.getPackage() + "." + declaringType.getSimpleName() + "#" + method.getSignature();
@@ -67,92 +81,71 @@ public class StaticAnalyseUtils {
 //                    }
 //                    allMethodNameSet.add(key);
 //                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // 遍历接口的方法
+        for (CtMethod<?> interfaceMethod : interfaceMethodSet) {
+            try{
+                // 检查类中是否包含重写的方法
+                for (CtMethod<?> classMethod : implMethodSet) {
+                    if (classMethod.isOverriding(interfaceMethod)) {
+                        //System.out.println("类方法" + classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + interfaceMethod.getDeclaringType().getQualifiedName() + "#" + interfaceMethod.getSignature());
+                        String interfaceName = interfaceMethod.getDeclaringType().getQualifiedName() + "#" + interfaceMethod.getSignature();
+                        String implName = classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature();
+                        interfaceAndImplMap.putIfAbsent(interfaceName, new HashSet<>());
+                        //记录接口实现类关系
+                        if (!interfaceName.equals(implName)) {
+                            interfaceAndImplMap.get(interfaceName).add(implName);
+                        }
+                    }
+                }
             }catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
-        // 遍历所有接口找到实现类
-        for (CtInterface<?> ctInterface : model.getElements(new TypeFilter<>(CtInterface.class))) {
-            try {
-                //System.out.println("接口: " + ctInterface.getSimpleName());
-                // 遍历接口的方法
-                for (CtMethod<?> interfaceMethod : ctInterface.getMethods()) {
-                    //System.out.println("接口方法: " + interfaceMethod.getSignature());
-                    // 遍历所有类
-                    for (CtClass<?> ctClass : model.getElements(new TypeFilter<>(CtClass.class))) {
-                        // 检查是否是接口实现类
-                            // 检查类中是否包含重写的方法
-                            for (CtMethod<?> classMethod : ctClass.getMethods()) {
-                                if (classMethod.isOverriding(interfaceMethod)) {
-                                    //System.out.println("类方法" + ctClass.getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + ctInterface.getQualifiedName() + "#" + interfaceMethod.getSignature());
-                                    String interfaceName = ctInterface.getQualifiedName() + "#" + interfaceMethod.getSignature();
-                                    String implName = ctClass.getQualifiedName() + "#" + classMethod.getSignature();
-                                    interfaceAndImplMap.putIfAbsent(interfaceName, new HashSet<>());
-                                    //记录接口实现类关系
-                                    if(!interfaceName.equals(implName)) {
-                                        interfaceAndImplMap.get(interfaceName).add(implName);
-                                    }
-                                }
-                            }
+        // 遍历接口的方法
+        for (CtMethod<?> absMethod : absMethodSet) {
+            try{
+                // 检查类中是否包含重写的方法
+                for (CtMethod<?> classMethod : implMethodSet) {
+                    if (classMethod.isOverriding(absMethod)) {
+                        //System.out.println("类方法" + classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature() + " 重写了抽象方法: " + absMethod.getDeclaringType().getQualifiedName() + "#" + absMethod.getSignature());
+                        String absName = absMethod.getDeclaringType().getQualifiedName() + "#" + absMethod.getSignature();
+                        String implName = classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature();
+                        interfaceAndImplMap.putIfAbsent(absName, new HashSet<>());
+                        //记录接口实现类关系
+                        if (!absName.equals(implName)) {
+                            interfaceAndImplMap.get(absName).add(implName);
+                        }
                     }
                 }
             }catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        // 遍历所有抽象类找到实现类
-        for (CtClass<?> absClass : model.getElements(new TypeFilter<>(CtClass.class))) {
-            if(absClass.isAbstract()) {
-                try {
-                    //System.out.println("接口: " + ctInterface.getSimpleName());
-                    // 遍历接口的方法
-                    for (CtMethod<?> absMethod : absClass.getMethods()) {
-                        //System.out.println("接口方法: " + interfaceMethod.getSignature());
-                        // 遍历所有类
-                        for (CtClass<?> ctClass : model.getElements(new TypeFilter<>(CtClass.class))) {
-                            if(ctClass.isAbstract()) {
-                                continue;
-                            }
-                            // 检查是否是接口实现类
-                            // 检查类中是否包含重写的方法
-                            for (CtMethod<?> classMethod : ctClass.getMethods()) {
-                                if (classMethod.isOverriding(absMethod)) {
-                                    //System.out.println("类方法" + ctClass.getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + absClass.getQualifiedName() + "#" + absMethod.getSignature());
-                                    String absName = absClass.getQualifiedName() + "#" + absMethod.getSignature();
-                                    String implName = ctClass.getQualifiedName() + "#" + classMethod.getSignature();
-                                    interfaceAndImplMap.putIfAbsent(absName, new HashSet<>());
-                                    //记录接口实现类关系
-                                    if(!absName.equals(implName)) {
-                                        interfaceAndImplMap.get(absName).add(implName);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }
+
         for (CtMethod<?> method : allMethodSet) {
             CtType<?> declaringType = method.getDeclaringType();
             List<CtInvocation<?>> methodInvocations = method.getElements(new TypeFilter<>(CtInvocation.class));
             if (!methodInvocations.isEmpty()) {
                 Set<String> calleeSet = new HashSet<>();
                 for (CtInvocation<?> methodInvocation : methodInvocations) {
-                    try{
+                    try {
                         CtExecutableReference<?> executable = ((CtInvocationImpl<?>) methodInvocation).getExecutable();
                         CtTypeReference<?> type = executable.getDeclaringType();
-                        String methodSignature = executable.getDeclaration() == null? executable.getSignature() : executable.getDeclaration().getSignature();
+                        String methodSignature = executable.getDeclaration() == null ? executable.getSignature() : executable.getDeclaration().getSignature();
                         String callee = type.getPackage() + "." + type.getSimpleName() + "#" + methodSignature;
                         calleeSet.add(callee);
                         //如果被调用者是接口,将实现类方法也一并塞入
-                        if(interfaceAndImplMap.containsKey(callee)) {
+                        if (interfaceAndImplMap.containsKey(callee)) {
                             Set<String> implCalleeSet = interfaceAndImplMap.get(callee);
                             calleeSet.addAll(implCalleeSet);
                         }
-                    }catch (Exception e) {
+                    } catch (Exception e) {
                         //e.printStackTrace();
                     }
                 }
@@ -161,11 +154,11 @@ public class StaticAnalyseUtils {
         }
         System.out.println("解析完毕");
         Instant end = Instant.now();
-        System.out.println("projectPath = " + projectCode + "分析耗时" + Duration.between(start, end).toMillis()/1000 + "s");
+        System.out.println("projectPath = " + projectCode + "分析耗时" + Duration.between(start, end).toMillis() / 1000 + "s");
         start = Instant.now();
         Class.forName("com.mysql.cj.jdbc.Driver");
         Connection conn = null;
-        try{
+        try {
             conn = DriverManager.getConnection(jdbcUrl, username, password);
             conn.setAutoCommit(false);
             String deleteSql = "delete from ydt_code_static_method_link where project_code = ? and branch = ?";
@@ -176,10 +169,10 @@ public class StaticAnalyseUtils {
             String batchInsertSql = "insert into ydt_code_static_method_link (caller, callee, callerLine, callerType, branch, project_code, md5) VALUES (?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(batchInsertSql);
             Set<Map.Entry<String, Set<String>>> entries = methodCallMap.entrySet();
-            for(Map.Entry<String, Set<String>> entry : entries) {
+            for (Map.Entry<String, Set<String>> entry : entries) {
                 String caller = entry.getKey();
                 Set<String> calleeList = entry.getValue();
-                for(String callee : calleeList) {
+                for (String callee : calleeList) {
                     ps.setString(1, caller);
                     ps.setString(2, callee);
                     ps.setString(3, null);
@@ -193,17 +186,17 @@ public class StaticAnalyseUtils {
             }
             int[] result = ps.executeBatch();
             conn.commit();
-        }catch (Exception e) {
-            if(conn != null) {
+        } catch (Exception e) {
+            if (conn != null) {
                 conn.rollback();
             }
-        }finally {
-            if(conn != null) {
+        } finally {
+            if (conn != null) {
                 conn.close();
             }
         }
         end = Instant.now();
-        System.out.println("projectPath = " + projectCode + "插入耗时" + Duration.between(start, end).toMillis()/1000 + "s");
+        System.out.println("projectPath = " + projectCode + "插入耗时" + Duration.between(start, end).toMillis() / 1000 + "s");
     }
 
     public static String md5Encode(String s) {

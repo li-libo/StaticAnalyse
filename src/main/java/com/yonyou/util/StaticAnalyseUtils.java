@@ -43,14 +43,16 @@ public class StaticAnalyseUtils {
         launcher.getEnvironment().setIgnoreDuplicateDeclarations(true);
         launcher.buildModel();
         CtModel model = launcher.getModel();
+        Instant end1 = Instant.now();
+        System.out.println("第1阶段获取项目模型, projectPath = " + projectPath + "分析耗时" + Duration.between(start, end1).toMillis() / 1000 + "s");
         Map<String, Set<String>> methodCallMap = new HashMap<>();
         Map<String, Set<String>> interfaceAndImplMap = new HashMap<>();
         Set<CtMethod<?>> allMethodSet = new HashSet<>();
         Set<CtInterface> interfaceSet = new HashSet<>();
         Set<CtClass> absClassSet = new HashSet<>();
-        Set<CtMethod<?>> interfaceMethodSet = new HashSet<>();
-        Set<CtMethod<?>> absMethodSet = new HashSet<>();
-        Set<CtMethod<?>> implMethodSet = new HashSet<>();
+        Set<CtMethod<?>> allInterfaceMethodSet = new HashSet<>();
+        Set<CtMethod<?>> allAbsMethodSet = new HashSet<>();
+        Set<CtMethod<?>> allImplMethodSet = new HashSet<>();
         //收集接口和实现类
         Instant start1 = Instant.now();
         for (CtType<?> ctType : model.getAllTypes()) {
@@ -72,72 +74,71 @@ public class StaticAnalyseUtils {
                 for(CtInterface inter : interfaceSet) {
                     if(ctClass.isSubtypeOf(inter.getReference())) {
                         //粗略收集所有接口和实现类方法
-                        interfaceMethodSet.addAll(inter.getMethods());
-                        implMethodSet.addAll(ctClass.getMethods());
+                        allInterfaceMethodSet.addAll(inter.getMethods());
+                        allImplMethodSet.addAll(ctClass.getMethods());
+                        Set<CtMethod<?>> interfaceMethodSet = inter.getMethods();
+                        Set<CtMethod<?>> implMethodSet = ctClass.getMethods();
+                        for (CtMethod<?> interfaceMethod : interfaceMethodSet) {
+                            try{
+                                // 检查类中是否包含重写的方法
+                                for (CtMethod<?> classMethod : implMethodSet) {
+                                    if (classMethod.isOverriding(interfaceMethod)) {
+                                        //System.out.println("类方法" + classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + interfaceMethod.getDeclaringType().getQualifiedName() + "#" + interfaceMethod.getSignature());
+                                        String interfaceName = interfaceMethod.getDeclaringType().getQualifiedName() + "#" + interfaceMethod.getSignature();
+                                        String implName = classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature();
+                                        interfaceAndImplMap.putIfAbsent(interfaceName, new HashSet<>());
+                                        //记录接口实现类关系
+                                        if (!interfaceName.equals(implName)) {
+                                            interfaceAndImplMap.get(interfaceName).add(implName);
+                                        }
+                                    }
+                                }
+                            }catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
                     }
                 }
                 for(CtClass absClass : absClassSet) {
                     if(ctClass.isSubtypeOf(absClass.getReference())) {
                         //粗略收集所有抽象类和实现类方法
-                        absMethodSet.addAll(absClass.getMethods());
-                        implMethodSet.addAll(ctClass.getMethods());
+                        allAbsMethodSet.addAll(absClass.getMethods());
+                        allImplMethodSet.addAll(ctClass.getMethods());
+                        Set<CtMethod<?>> absMethodSet = absClass.getMethods();
+                        Set<CtMethod<?>> implMethodSet = ctClass.getMethods();
+                        for (CtMethod<?> absMethod : absMethodSet) {
+                            try{
+                                // 检查类中是否包含重写的方法
+                                for (CtMethod<?> classMethod : implMethodSet) {
+                                    if (classMethod.isOverriding(absMethod)) {
+                                        //System.out.println("类方法" + classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature() + " 重写了抽象方法: " + absMethod.getDeclaringType().getQualifiedName() + "#" + absMethod.getSignature());
+                                        String absName = absMethod.getDeclaringType().getQualifiedName() + "#" + absMethod.getSignature();
+                                        String implName = classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature();
+                                        interfaceAndImplMap.putIfAbsent(absName, new HashSet<>());
+                                        //记录抽象类和实现类关系
+                                        if (!absName.equals(implName)) {
+                                            interfaceAndImplMap.get(absName).add(implName);
+                                        }
+                                    }
+                                }
+                            }catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
                     }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        System.out.println("所有方法数量 = " + allMethodSet.size() + ", 接口方法数量 = " + interfaceMethodSet.size() + ", 抽象方法数量 = " + absMethodSet.size() + ", 实现类方法数量 = " + implMethodSet.size());
-        Instant end1 = Instant.now();
-        System.out.println("第1阶段所有方法收集, projectPath = " + projectPath + "分析耗时" + Duration.between(start, end1).toMillis() / 1000 + "s");
-        // 遍历收集接口实现类重写的方法
-        start1 = Instant.now();
-        for (CtMethod<?> interfaceMethod : interfaceMethodSet) {
-            try{
-                // 检查类中是否包含重写的方法
-                for (CtMethod<?> classMethod : implMethodSet) {
-                    if (classMethod.isOverriding(interfaceMethod)) {
-                        //System.out.println("类方法" + classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature() + " 重写了接口方法: " + interfaceMethod.getDeclaringType().getQualifiedName() + "#" + interfaceMethod.getSignature());
-                        String interfaceName = interfaceMethod.getDeclaringType().getQualifiedName() + "#" + interfaceMethod.getSignature();
-                        String implName = classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature();
-                        interfaceAndImplMap.putIfAbsent(interfaceName, new HashSet<>());
-                        //记录接口实现类关系
-                        if (!interfaceName.equals(implName)) {
-                            interfaceAndImplMap.get(interfaceName).add(implName);
-                        }
-                    }
-                }
-            }catch (Exception e) {
-                e.printStackTrace();
-            }
+        int overMethodSize = 0;
+        Set<Map.Entry<String, Set<String>>> interfaceAndImplEntries = interfaceAndImplMap.entrySet();
+        for(Map.Entry<String, Set<String>> entry : interfaceAndImplEntries) {
+            overMethodSize += entry.getValue().size();
         }
+        System.out.println("所有方法数量 = " + allMethodSet.size() + ", 接口方法数量 = " + allInterfaceMethodSet.size() + ", 抽象方法数量 = " + allAbsMethodSet.size() + ", 实现类方法数量 = " + allImplMethodSet.size() + ", 其中实现类重写接口 + 抽象类方法数量 = " + overMethodSize);
         end1 = Instant.now();
-        System.out.println("寻找到被重写的接口数量为" + interfaceAndImplMap.size());
-        System.out.println("第2阶段分析接口实现类, projectPath = " + projectPath + "分析耗时" + Duration.between(start1, end1).toMillis() / 1000 + "s");
-        start1 = Instant.now();
-        // 遍历收集抽象类重写的方法
-        for (CtMethod<?> absMethod : absMethodSet) {
-            try{
-                // 检查类中是否包含重写的方法
-                for (CtMethod<?> classMethod : implMethodSet) {
-                    if (classMethod.isOverriding(absMethod)) {
-                        //System.out.println("类方法" + classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature() + " 重写了抽象方法: " + absMethod.getDeclaringType().getQualifiedName() + "#" + absMethod.getSignature());
-                        String absName = absMethod.getDeclaringType().getQualifiedName() + "#" + absMethod.getSignature();
-                        String implName = classMethod.getDeclaringType().getQualifiedName() + "#" + classMethod.getSignature();
-                        interfaceAndImplMap.putIfAbsent(absName, new HashSet<>());
-                        //记录抽象类和实现类关系
-                        if (!absName.equals(implName)) {
-                            interfaceAndImplMap.get(absName).add(implName);
-                        }
-                    }
-                }
-            }catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        end1 = Instant.now();
-        System.out.println("寻找到被重写的接口+抽象类数量为" + interfaceAndImplMap.size());
-        System.out.println("第3阶段分析抽象方法, projectPath = " + projectPath + "分析耗时" + Duration.between(start1, end1).toMillis() / 1000 + "s");
+        System.out.println("第2阶段所有方法收集, projectPath = " + projectPath + "分析耗时" + Duration.between(start1, end1).toMillis() / 1000 + "s");
         start1 = Instant.now();
         for (CtMethod<?> method : allMethodSet) {
             CtType<?> declaringType = method.getDeclaringType();
@@ -164,7 +165,7 @@ public class StaticAnalyseUtils {
             }
         }
         end1 = Instant.now();
-        System.out.println("第4阶段分析调用关系, projectPath = " + projectPath + "分析耗时" + Duration.between(start1, end1).toMillis() / 1000 + "s");
+        System.out.println("第3阶段分析调用关系, projectPath = " + projectPath + "分析耗时" + Duration.between(start1, end1).toMillis() / 1000 + "s");
         System.out.println("解析完毕");
         System.out.println("分析总耗时projectPath = " + projectPath + "分析耗时" + Duration.between(start, end1).toMillis() / 1000 + "s");
 
@@ -186,8 +187,8 @@ public class StaticAnalyseUtils {
             int count = 0;
             String batchInsertSql = "insert into ydt_code_static_method_link (caller, callee, callerLine, callerType, branch, project_code, md5) VALUES (?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(batchInsertSql);
-            Set<Map.Entry<String, Set<String>>> entries = methodCallMap.entrySet();
-            for (Map.Entry<String, Set<String>> entry : entries) {
+            Set<Map.Entry<String, Set<String>>> methodCallEntries = methodCallMap.entrySet();
+            for (Map.Entry<String, Set<String>> entry : methodCallEntries) {
                 String caller = entry.getKey();
                 Set<String> calleeList = entry.getValue();
                 for (String callee : calleeList) {

@@ -67,17 +67,17 @@ public class StaticAnalyseUtils {
             }
         }
         //收集所有方法
-        for (CtType<?> ctClass : model.getAllTypes()) {
+        for (CtType<?> ctType : model.getAllTypes()) {
             try {
-                Set<CtMethod<?>> ctlMethodSet = ctClass.getAllMethods();
+                Set<CtMethod<?>> ctlMethodSet = ctType.getAllMethods();
                 allMethodSet.addAll(ctlMethodSet);
                 for(CtInterface inter : interfaceSet) {
-                    if(ctClass.isSubtypeOf(inter.getReference())) {
+                    if(ctType.isSubtypeOf(inter.getReference())) {
                         //粗略收集所有接口和实现类方法
                         allInterfaceMethodSet.addAll(inter.getMethods());
-                        allImplMethodSet.addAll(ctClass.getMethods());
+                        allImplMethodSet.addAll(ctType.getMethods());
                         Set<CtMethod<?>> interfaceMethodSet = inter.getMethods();
-                        Set<CtMethod<?>> implMethodSet = ctClass.getMethods();
+                        Set<CtMethod<?>> implMethodSet = ctType.getMethods();
                         for (CtMethod<?> interfaceMethod : interfaceMethodSet) {
                             try{
                                 // 检查类中是否包含重写的方法
@@ -100,12 +100,12 @@ public class StaticAnalyseUtils {
                     }
                 }
                 for(CtClass absClass : absClassSet) {
-                    if(ctClass.isSubtypeOf(absClass.getReference())) {
+                    if(ctType.isSubtypeOf(absClass.getReference())) {
                         //粗略收集所有抽象类和实现类方法
                         allAbsMethodSet.addAll(absClass.getMethods());
-                        allImplMethodSet.addAll(ctClass.getMethods());
+                        allImplMethodSet.addAll(ctType.getMethods());
                         Set<CtMethod<?>> absMethodSet = absClass.getMethods();
-                        Set<CtMethod<?>> implMethodSet = ctClass.getMethods();
+                        Set<CtMethod<?>> implMethodSet = ctType.getMethods();
                         for (CtMethod<?> absMethod : absMethodSet) {
                             try{
                                 // 检查类中是否包含重写的方法
@@ -128,6 +128,7 @@ public class StaticAnalyseUtils {
                     }
                 }
             } catch (Exception e) {
+                System.out.println("解析ctType = " + ctType.getQualifiedName() + "出错!");
                 e.printStackTrace();
             }
         }
